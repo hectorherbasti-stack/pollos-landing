@@ -1,9 +1,9 @@
 // Datos del negocio: editá estos valores para personalizar la landing.
 export const site = {
-  businessName: 'Pollos Doña Rosa',
+  businessName: 'Julia',
   tagline: 'Pollo fresco del día, directo del mercado a tu mesa',
-  whatsappNumber: '5491122334455', // formato internacional, sin + ni espacios
-  phoneDisplay: '+54 9 11 2233-4455',
+  whatsappNumber: '51987654321', // formato internacional, sin + ni espacios
+  phoneDisplay: '+51 987 654 321',
   market: 'Mercado Central',
   stall: 'Puesto 24, Pasillo B',
   address: 'Av. Siempre Viva 123, Ciudad',

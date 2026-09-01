@@ -1,4 +1,5 @@
 import { site, buildWhatsappLink } from '../siteConfig'
+import animeChicken from '../assets/julia-anime-chicken.png'
 
 export default function Hero() {
   return (
@@ -35,8 +36,12 @@ export default function Hero() {
 
         <div className="relative flex items-center justify-center">
           <div className="absolute h-64 w-64 rounded-full bg-amber-200/60 blur-3xl sm:h-80 sm:w-80" />
-          <div className="relative flex h-56 w-56 items-center justify-center rounded-full bg-white text-8xl shadow-xl ring-8 ring-amber-100 sm:h-72 sm:w-72 sm:text-9xl">
-            🐔
+          <div className="chicken-stage relative flex h-56 w-56 items-center justify-center rounded-full bg-white shadow-xl ring-8 ring-amber-100 sm:h-72 sm:w-72">
+            <img
+              src={animeChicken}
+              alt="Pollo estilo anime de Julia"
+              className="chicken-bounce h-[115%] w-[115%] object-contain drop-shadow-lg"
+            />
           </div>
         </div>
       </div>
