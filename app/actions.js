@@ -12,7 +12,7 @@ export async function createSale(formData) {
     redirect('/panel?error=Revisa+el+producto+y+la+cantidad')
   }
 
-  recordSale(productId, Math.round(quantity * 100) / 100)
+  await recordSale(productId, Math.round(quantity * 100) / 100)
   revalidatePath('/')
   revalidatePath('/panel')
   redirect('/panel?success=Venta+registrada')

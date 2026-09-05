@@ -12,8 +12,10 @@ export const metadata = { title: 'Panel de ventas | Julia' }
 
 export default async function PanelPage({ searchParams }) {
   const params = await searchParams
-  const products = getProducts()
-  const { totals, byProduct, recentSales } = getDashboard()
+  const [products, { totals, byProduct, recentSales }] = await Promise.all([
+    getProducts(),
+    getDashboard(),
+  ])
 
   return (
     <main className="dashboard">
@@ -62,7 +64,7 @@ export default async function PanelPage({ searchParams }) {
         <div className="panel-title"><p>HISTORIAL</p><h2>Últimas ventas</h2></div>
         {recentSales.length === 0 ? <p className="empty-state">Aún no hay ventas. Registra la primera desde el formulario.</p> : (
           <div className="table-wrap"><table><thead><tr><th>Producto</th><th>Cantidad</th><th>Total</th><th>Ganancia</th><th>Fecha</th></tr></thead><tbody>
-            {recentSales.map((sale) => <tr key={sale.id}><td>{sale.emoji} {sale.name}</td><td>{number(sale.quantity)}</td><td>{money(sale.totalCents)}</td><td className="positive">+{money(sale.profitCents)}</td><td>{new Date(`${sale.soldAt}Z`).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}</td></tr>)}
+            {recentSales.map((sale) => <tr key={sale.id}><td>{sale.emoji} {sale.name}</td><td>{number(sale.quantity)}</td><td>{money(sale.totalCents)}</td><td className="positive">+{money(sale.profitCents)}</td><td>{new Date(sale.soldAt).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}</td></tr>)}
           </tbody></table></div>
         )}
       </section>

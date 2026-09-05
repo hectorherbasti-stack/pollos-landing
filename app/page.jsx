@@ -7,8 +7,8 @@ export const dynamic = 'force-dynamic'
 
 const orderLink = buildWhatsappLink(`Hola ${site.businessName}, quiero hacer un pedido.`)
 
-export default function Home() {
-  const products = getProducts()
+export default async function Home() {
+  const products = await getProducts()
   const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(site.mapQuery)}&output=embed`
 
   return (
