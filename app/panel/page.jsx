@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createSale } from '../actions'
+import { logout } from './login/actions'
 import { getDashboard, getProducts } from '../../lib/db'
 
 export const dynamic = 'force-dynamic'
@@ -21,10 +22,11 @@ export default async function PanelPage({ searchParams }) {
     <main className="dashboard">
       <header className="dashboard-header">
         <div><p className="eyebrow"><span /> Control del negocio</p><h1>Panel de Julia</h1></div>
-        <Link className="text-link" href="/">← Volver a la tienda</Link>
+        <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+          <Link className="text-link" href="/">← Volver a la tienda</Link>
+          <form action={logout}><button className="text-link" type="submit" style={{ background: 'none', border: 0, cursor: 'pointer', font: 'inherit' }}>Cerrar sesión</button></form>
+        </div>
       </header>
-
-      <div className="public-warning"><strong>Panel sin autenticación.</strong> Cualquier persona con el enlace puede verlo y registrar ventas.</div>
 
       <section className="metrics" aria-label="Resumen de ventas">
         <article><span>Unidades vendidas</span><strong>{number(totals.units)}</strong><small>kg / unidades registradas</small></article>
