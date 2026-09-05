@@ -1,10 +1,14 @@
 import Image from 'next/image'
 import animeChicken from '../src/assets/julia-anime-chicken.png'
-import { buildWhatsappLink, features, products, site } from '../src/siteConfig'
+import { buildWhatsappLink, features, site } from '../src/siteConfig'
+import { getProducts } from '../lib/db'
+
+export const dynamic = 'force-dynamic'
 
 const orderLink = buildWhatsappLink(`Hola ${site.businessName}, quiero hacer un pedido.`)
 
 export default function Home() {
+  const products = getProducts()
   const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(site.mapQuery)}&output=embed`
 
   return (
@@ -17,6 +21,7 @@ export default function Home() {
           <a href="#productos">Carta</a>
           <a href="#nosotros">Nuestra promesa</a>
           <a href="#ubicacion">Visítanos</a>
+          <a href="/panel">Panel</a>
         </nav>
         <a className="button button-small" href={orderLink} target="_blank" rel="noreferrer">
           Pedir ahora <span aria-hidden="true">↗</span>
@@ -67,7 +72,7 @@ export default function Home() {
               <h3>{product.name}</h3>
               <p>{product.description}</p>
               <div className="product-bottom">
-                <strong>{product.price}</strong>
+                <strong>{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(product.salePriceCents / 100)} / kg</strong>
                 <a href={buildWhatsappLink(`Hola Julia, quiero pedir: ${product.name}`)} target="_blank" rel="noreferrer" aria-label={`Pedir ${product.name}`}>↗</a>
               </div>
             </article>
