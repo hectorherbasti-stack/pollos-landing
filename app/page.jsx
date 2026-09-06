@@ -1,15 +1,16 @@
 import Image from 'next/image'
 import animeChicken from '../src/assets/julia-anime-chicken.png'
-import { buildWhatsappLink, features, site } from '../src/siteConfig'
+import { site, features } from '../src/siteConfig'
 import { getProducts } from '../lib/db'
+import { auth, signOut } from '../auth'
+import OrderCta from './components/OrderCta'
 
 export const dynamic = 'force-dynamic'
 
-const orderLink = buildWhatsappLink(`Hola ${site.businessName}, quiero hacer un pedido.`)
-
 export default async function Home() {
-  const products = await getProducts()
+  const [session, products] = await Promise.all([auth(), getProducts()])
   const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(site.mapQuery)}&output=embed`
+  const greeting = `Hola ${site.businessName}, quiero hacer un pedido.`
 
   return (
     <main>
@@ -22,10 +23,17 @@ export default async function Home() {
           <a href="#nosotros">Nuestra promesa</a>
           <a href="#ubicacion">Visítanos</a>
           <a href="/panel">Panel</a>
+          {session && (
+            <form action={async () => { 'use server'; await signOut({ redirectTo: '/' }) }}>
+              <button type="submit" style={{ background: 'none', border: 0, cursor: 'pointer', font: 'inherit' }}>
+                Hola, {session.user.name?.split(' ')[0]} · Salir
+              </button>
+            </form>
+          )}
         </nav>
-        <a className="button button-small" href={orderLink} target="_blank" rel="noreferrer">
-          Pedir ahora <span aria-hidden="true">↗</span>
-        </a>
+        <OrderCta session={session} message={greeting} className="button button-small" ariaLabel="Pedir ahora">
+          {session ? <>Pedir ahora <span aria-hidden="true">↗</span></> : <>Inicia sesión para comprar</>}
+        </OrderCta>
       </header>
 
       <section id="inicio" className="hero">
@@ -36,7 +44,9 @@ export default async function Home() {
             Cortes frescos, atención cercana y tu pedido listo para llevar. Así de simple, así de Julia.
           </p>
           <div className="hero-actions">
-            <a className="button" href={orderLink} target="_blank" rel="noreferrer">Pedir por WhatsApp <span>↗</span></a>
+            <OrderCta session={session} message={greeting} className="button" ariaLabel="Pedir por WhatsApp">
+              {session ? <>Pedir por WhatsApp <span>↗</span></> : <>Inicia sesión para pedir <span>↗</span></>}
+            </OrderCta>
             <a className="text-link" href="#productos">Conoce nuestros cortes <span>↓</span></a>
           </div>
           <div className="hero-proof">
@@ -73,7 +83,9 @@ export default async function Home() {
               <p>{product.description}</p>
               <div className="product-bottom">
                 <strong>{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(product.salePriceCents / 100)} / kg</strong>
-                <a href={buildWhatsappLink(`Hola Julia, quiero pedir: ${product.name}`)} target="_blank" rel="noreferrer" aria-label={`Pedir ${product.name}`}>↗</a>
+                <OrderCta session={session} message={`Hola Julia, quiero pedir: ${product.name}`} ariaLabel={`Pedir ${product.name}`}>
+                  ↗
+                </OrderCta>
               </div>
             </article>
           ))}
@@ -104,7 +116,9 @@ export default async function Home() {
             <h2>Tu pedido fresco te espera.</h2>
             <div className="info-block"><small>DIRECCIÓN</small><strong>{site.market} · {site.stall}</strong><p>{site.address}</p></div>
             <div className="info-block"><small>HORARIOS</small>{site.hours.map((hour) => <p className="hours" key={hour.day}><span>{hour.day}</span><strong>{hour.time}</strong></p>)}</div>
-            <a className="button" href={orderLink} target="_blank" rel="noreferrer">Escribir a Julia <span>↗</span></a>
+            <OrderCta session={session} message={greeting} className="button" ariaLabel="Escribir a Julia">
+              {session ? <>Escribir a Julia <span>↗</span></> : <>Inicia sesión para escribir <span>↗</span></>}
+            </OrderCta>
           </div>
           <iframe title="Ubicación de Julia en el mapa" src={mapSrc} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
         </div>
@@ -117,7 +131,9 @@ export default async function Home() {
         <small>© {new Date().getFullYear()} Julia</small>
       </footer>
 
-      <a className="whatsapp" href={orderLink} target="_blank" rel="noreferrer" aria-label="Escribir a Julia por WhatsApp">💬</a>
+      <OrderCta session={session} message={greeting} className="whatsapp" ariaLabel="Escribir a Julia por WhatsApp">
+        💬
+      </OrderCta>
     </main>
   )
 }
