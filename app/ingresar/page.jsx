@@ -4,6 +4,7 @@ import { signIn } from '../../auth'
 export const metadata = { title: 'Iniciar sesión | Julia' }
 
 export default async function LoginPage({ searchParams }) {
+  // callbackUrl permite regresar al lugar donde el cliente intentó comprar.
   const params = await searchParams
   const callbackUrl = params?.callbackUrl || '/'
 
@@ -19,6 +20,7 @@ export default async function LoginPage({ searchParams }) {
         </p>
         <form
           action={async () => {
+            // Esta función inline también es una Server Action.
             'use server'
             await signIn('google', { redirectTo: callbackUrl })
           }}

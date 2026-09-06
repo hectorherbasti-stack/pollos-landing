@@ -8,12 +8,15 @@ import OrderCta from './components/OrderCta'
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
+  // Ejecutamos autenticación y consulta de productos en paralelo para reducir espera.
   const [session, products] = await Promise.all([auth(), getProducts()])
+  // Google Maps recibe una búsqueda codificada para formar la URL segura del iframe.
   const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(site.mapQuery)}&output=embed`
   const greeting = `Hola ${site.businessName}, quiero hacer un pedido.`
 
   return (
     <main>
+      {/* Cabecera: marca, navegación, estado de sesión y llamada a la acción. */}
       <header className="site-header">
         <a className="brand" href="#inicio" aria-label="Julia, ir al inicio">
           <span>J</span> Julia
@@ -36,6 +39,7 @@ export default async function Home() {
         </OrderCta>
       </header>
 
+      {/* Hero: propuesta principal y mascota optimizada por next/image. */}
       <section id="inicio" className="hero">
         <div className="hero-copy">
           <p className="eyebrow"><span /> Fresco de verdad, todos los días</p>
@@ -70,12 +74,14 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Catálogo: products proviene de PostgreSQL, no de un arreglo fijo. */}
       <section id="productos" className="products-section section-pad">
         <div className="section-heading">
           <div><p className="eyebrow"><span /> Nuestra carta</p><h2>Elige tu favorito</h2></div>
           <p>Cortes frescos preparados como los necesitas. Consulta la disponibilidad del día.</p>
         </div>
         <div className="product-grid">
+          {/* map convierte cada fila de PostgreSQL en una tarjeta visual. */}
           {products.map((product, index) => (
             <article className="product-card" key={product.name}>
               <div className="product-top"><span>0{index + 1}</span><b>{product.emoji}</b></div>
@@ -92,6 +98,7 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Beneficios comerciales configurables desde src/siteConfig.js. */}
       <section id="nosotros" className="promise section-pad">
         <div className="promise-title">
           <p className="eyebrow light"><span /> La promesa Julia</p>
@@ -109,6 +116,7 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Ubicación, horarios y mapa externo cargado de forma diferida. */}
       <section id="ubicacion" className="location section-pad">
         <div className="location-card">
           <div className="location-copy">

@@ -4,6 +4,7 @@ import { login } from './actions'
 export const metadata = { title: 'Ingresar al panel | Julia' }
 
 export default async function LoginPage({ searchParams }) {
+  // next conserva la ruta privada original pedida por el usuario.
   const params = await searchParams
   const next = params?.next || '/panel'
 
@@ -15,6 +16,7 @@ export default async function LoginPage({ searchParams }) {
           <h2>Panel de Julia</h2>
         </div>
         {params?.error && <p className="form-message error">{params.error}</p>}
+        {/* El formulario se procesa completamente en el servidor. */}
         <form action={login}>
           <input type="hidden" name="next" value={next} />
           <label htmlFor="password">Contraseña</label>

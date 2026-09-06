@@ -5,6 +5,7 @@ import { getDashboard, getProducts } from '../../lib/db'
 
 export const dynamic = 'force-dynamic'
 
+// Formateadores de presentación: la base trabaja en céntimos y la UI muestra soles.
 const money = (cents) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(cents / 100)
 const number = (value) => new Intl.NumberFormat('es-PE', { maximumFractionDigits: 2 }).format(value)
 
@@ -12,7 +13,9 @@ const number = (value) => new Intl.NumberFormat('es-PE', { maximumFractionDigits
 export const metadata = { title: 'Panel de ventas | Julia' }
 
 export default async function PanelPage({ searchParams }) {
+  // Next.js 16 entrega searchParams como Promise.
   const params = await searchParams
+  // Catálogo y métricas no dependen entre sí, por eso se consultan en paralelo.
   const [products, { totals, byProduct, recentSales }] = await Promise.all([
     getProducts(),
     getDashboard(),
@@ -28,6 +31,7 @@ export default async function PanelPage({ searchParams }) {
         </div>
       </header>
 
+      {/* Indicadores calculados por PostgreSQL, no por el navegador. */}
       <section className="metrics" aria-label="Resumen de ventas">
         <article><span>Unidades vendidas</span><strong>{number(totals.units)}</strong><small>kg / unidades registradas</small></article>
         <article><span>Ingresos</span><strong>{money(totals.revenueCents)}</strong><small>ventas totales</small></article>
@@ -35,11 +39,13 @@ export default async function PanelPage({ searchParams }) {
         <article className="profit"><span>Ganancia</span><strong>{money(totals.profitCents)}</strong><small>ingresos menos costos</small></article>
       </section>
 
+      {/* Columna izquierda: alta de venta. Derecha: rendimiento agregado. */}
       <section className="dashboard-grid">
         <div className="sale-form-card">
           <div className="panel-title"><p>REGISTRAR</p><h2>Nueva venta</h2></div>
           {params?.success && <p className="form-message success">✓ {params.success}</p>}
           {params?.error && <p className="form-message error">{params.error}</p>}
+          {/* action conecta directamente el formulario con la Server Action. */}
           <form action={createSale}>
             <label htmlFor="productId">Producto</label>
             <select id="productId" name="productId" required defaultValue="">
@@ -62,6 +68,7 @@ export default async function PanelPage({ searchParams }) {
         </div>
       </section>
 
+      {/* Historial limitado a las doce ventas más recientes por lib/db.js. */}
       <section className="sales-table-card">
         <div className="panel-title"><p>HISTORIAL</p><h2>Últimas ventas</h2></div>
         {recentSales.length === 0 ? <p className="empty-state">Aún no hay ventas. Registra la primera desde el formulario.</p> : (

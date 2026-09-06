@@ -1,4 +1,5 @@
-// Datos del negocio: editá estos valores para personalizar la landing.
+// Datos del negocio: edita estos valores para personalizar la landing.
+// Esta información no es secreta: termina visible en el HTML de la página.
 export const site = {
   businessName: 'Julia',
   tagline: 'Pollo fresco del día, directo del mercado a tu mesa',
@@ -43,6 +44,7 @@ export const products = [
 ]
 
 export const features = [
+  // Cada objeto se convierte en un bloque dentro de "La promesa Julia".
   {
     title: 'Fresco todos los días',
     description: 'Compramos y despostamos cada mañana, nada de cámara de frío por semanas.',
@@ -61,6 +63,8 @@ export const features = [
 ]
 
 export function buildWhatsappLink(message) {
+  // wa.me exige el número en formato internacional, sin +, espacios ni guiones.
   const base = `https://wa.me/${site.whatsappNumber}`
+  // encodeURIComponent evita que espacios, tildes o signos rompan la URL.
   return message ? `${base}?text=${encodeURIComponent(message)}` : base
 }
