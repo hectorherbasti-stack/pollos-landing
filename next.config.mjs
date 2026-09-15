@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
-// Punto central para activar futuras opciones de Next.js.
-// Está vacío porque actualmente usamos los valores recomendados por defecto.
-const nextConfig = {}
+// Genera el servidor y las dependencias necesarias para la imagen Docker.
+const nextConfig = { output: 'standalone' }
 
 export default nextConfig

@@ -1,0 +1,37 @@
+services:
+  app:
+    image: pollos-landing:local
+    build: .
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://julia:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}@db:5432/julia"
+      PANEL_PASSWORD: "${PANEL_PASSWORD:?Define PANEL_PASSWORD en .env}"
+      AUTH_SECRET: "${AUTH_SECRET:?Define AUTH_SECRET en .env}"
+      AUTH_URL: "${AUTH_URL:-http://localhost:3000}"
+      AUTH_TRUST_HOST: "true"
+      AUTH_GOOGLE_ID: "${AUTH_GOOGLE_ID:-}"
+      AUTH_GOOGLE_SECRET: "${AUTH_GOOGLE_SECRET:-}"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_USER: julia
+      POSTGRES_DB: julia
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U julia -d julia"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

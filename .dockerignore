@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.env
+.env.*
+.vercel
+.codex
+.agents
+out
+dist
+dist-ssr
+data
+*.log
+.DS_Store
