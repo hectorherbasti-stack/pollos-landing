@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 // redirect termina la acción y devuelve una respuesta de redirección al navegador.
 import { redirect } from 'next/navigation'
 // recordSale concentra la consulta SQL; la Action solo valida y coordina.
-import { recordSale } from '../lib/db'
+import { recordSale } from '../lib/backend'
 
 export async function createSale(formData) {
   // FormData contiene los campos enviados por el formulario de /panel.

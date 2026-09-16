@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createSale } from '../actions'
 import { logout } from './login/actions'
-import { getDashboard, getProducts } from '../../lib/db'
+import { getDashboard, getProducts } from '../../lib/backend'
 
 export const dynamic = 'force-dynamic'
 

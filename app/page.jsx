@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import animeChicken from '../src/assets/julia-anime-chicken.png'
 import { site, features } from '../src/siteConfig'
-import { getProducts } from '../lib/db'
+import { getProducts } from '../lib/backend'
 import { auth, signOut } from '../auth'
 import OrderCta from './components/OrderCta'
 
