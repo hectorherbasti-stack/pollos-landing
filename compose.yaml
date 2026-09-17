@@ -6,6 +6,7 @@ services:
       - "127.0.0.1:3000:3000"
     environment:
       BACKEND_URL: http://backend:8000
+      CHECKOUT_PUBLIC_URL: "${CHECKOUT_PUBLIC_URL:-http://localhost:3000}"
       BACKEND_API_KEY: "${BACKEND_API_KEY:?Define BACKEND_API_KEY en .env}"
       DATABASE_URL: "postgresql://julia:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}@db:5432/julia"
       PANEL_PASSWORD: "${PANEL_PASSWORD:?Define PANEL_PASSWORD en .env}"
@@ -29,6 +30,12 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     environment:
+      PAYMENTS_MODE: "${PAYMENTS_MODE:-demo}"
+      CHECKOUT_PUBLIC_URL: "${CHECKOUT_PUBLIC_URL:-http://localhost:3000}"
+      PAYPAL_CLIENT_ID: "${PAYPAL_CLIENT_ID:-}"
+      PAYPAL_CLIENT_SECRET: "${PAYPAL_CLIENT_SECRET:-}"
+      PAYPAL_USD_PER_PEN: "${PAYPAL_USD_PER_PEN:-}"
+      MERCADOPAGO_ACCESS_TOKEN: "${MERCADOPAGO_ACCESS_TOKEN:-}"
       DATABASE_URL: "postgresql://julia:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}@db:5432/julia"
       BACKEND_API_KEY: "${BACKEND_API_KEY:?Define BACKEND_API_KEY en .env}"
     depends_on:

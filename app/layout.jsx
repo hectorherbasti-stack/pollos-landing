@@ -1,4 +1,5 @@
 import './globals.css'
+import { CartProvider } from './components/CartProvider'
 
 // Next.js transforma este objeto en <title> y <meta name="description">.
 // oxlint-disable-next-line react/only-export-components -- Next.js metadata convention
@@ -11,7 +12,7 @@ export default function RootLayout({ children }) {
   // Todo page.jsx se inserta en children y comparte este documento HTML base.
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body><CartProvider>{children}</CartProvider></body>
     </html>
   )
 }

@@ -4,6 +4,7 @@ import { site, features } from '../src/siteConfig'
 import { getProducts } from '../lib/backend'
 import { auth, signOut } from '../auth'
 import OrderCta from './components/OrderCta'
+import { AddToCart, CartLink } from './components/CartProvider'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,9 +35,7 @@ export default async function Home() {
             </form>
           )}
         </nav>
-        <OrderCta session={session} message={greeting} className="button button-small" ariaLabel="Pedir ahora">
-          {session ? <>Pedir ahora <span aria-hidden="true">↗</span></> : <>Inicia sesión para comprar</>}
-        </OrderCta>
+        <CartLink />
       </header>
 
       {/* Hero: propuesta principal y mascota optimizada por next/image. */}
@@ -48,9 +47,7 @@ export default async function Home() {
             Cortes frescos, atención cercana y tu pedido listo para llevar. Así de simple, así de Julia.
           </p>
           <div className="hero-actions">
-            <OrderCta session={session} message={greeting} className="button" ariaLabel="Pedir por WhatsApp">
-              {session ? <>Pedir por WhatsApp <span>↗</span></> : <>Inicia sesión para pedir <span>↗</span></>}
-            </OrderCta>
+            <a href="#productos" className="button">Arma tu pedido <span>↗</span></a>
             <a className="text-link" href="#productos">Conoce nuestros cortes <span>↓</span></a>
           </div>
           <div className="hero-proof">
@@ -89,9 +86,7 @@ export default async function Home() {
               <p>{product.description}</p>
               <div className="product-bottom">
                 <strong>{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(product.salePriceCents / 100)} / kg</strong>
-                <OrderCta session={session} message={`Hola Julia, quiero pedir: ${product.name}`} ariaLabel={`Pedir ${product.name}`}>
-                  ↗
-                </OrderCta>
+                <AddToCart product={{ id: product.id, name: product.name }} />
               </div>
             </article>
           ))}

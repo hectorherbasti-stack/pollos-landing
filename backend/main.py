@@ -15,6 +15,7 @@ from psycopg_pool import ConnectionPool, PoolTimeout
 from pydantic import BaseModel, ConfigDict, Field
 
 import queries
+from checkout import create_router
 
 
 @asynccontextmanager
@@ -96,3 +97,6 @@ def create_sale(sale: SaleInput, conn: Database):
     if row is None:
         raise HTTPException(404, 'Producto no encontrado o inactivo')
     return {'id': row['id']}
+
+
+app.include_router(create_router(connection, require_admin))

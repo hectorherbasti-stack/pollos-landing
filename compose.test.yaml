@@ -5,6 +5,7 @@ services:
       context: ./backend
       target: test
     environment:
+      PAYMENTS_MODE: demo
       DATABASE_URL: "postgresql://julia:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}@db:5432/julia"
       BACKEND_API_KEY: "${BACKEND_API_KEY:?Define BACKEND_API_KEY en .env}"
     depends_on:

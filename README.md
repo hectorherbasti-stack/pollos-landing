@@ -142,3 +142,96 @@ Docker no publica ni cambia el despliegue de Vercel. Para usar FastAPI desde Ver
 primero despliega el backend en un servidor accesible por HTTPS y configura allí
 `DATABASE_URL` y `BACKEND_API_KEY`; en Vercel define su URL pública como `BACKEND_URL`
 y la misma clave. `http://backend:8000` solo existe dentro de Docker Compose.
+
+## Carrito y pagos de prueba
+
+El catálogo permite agregar productos al carrito (`/carrito`), ajustar kilos,
+quitar productos y revisar el total. El carrito se conserva en el navegador.
+El checkout permite comprar como invitado con nombre, correo y celular; el método
+actual de entrega es recojo en tienda, sin envío.
+
+Por defecto Docker usa `PAYMENTS_MODE=demo`. No necesitas cuentas de comercio ni
+claves de PayPal/Mercado Pago para probarlo:
+
+1. Ejecuta `docker compose up --build -d`.
+2. Abre http://localhost:3000, agrega productos y entra al carrito.
+3. Completa datos de prueba y selecciona **PayPal**, **Yape** o **Visa**.
+4. Pulsa **Revisar pedido**. El servidor vuelve a consultar precios y disponibilidad.
+5. En el detalle del pedido, simula un pago aprobado, rechazado o cancelado.
+
+La demostración **no llama a las pasarelas ni realiza cobros**. Los pedidos se
+persisten en PostgreSQL con estado `simulated` al aprobar la prueba; no generan
+ventas ni ganancias en el panel. Un rechazo permite reintentar el mismo pedido.
+Al cancelar, puedes regresar al carrito e iniciar un pedido nuevo.
+
+### Pruebas con las pasarelas externas
+
+Además de la demostración local, hay adaptadores para PayPal Orders API y
+Mercado Pago Checkout Pro. Estos necesitan credenciales y una URL de retorno
+HTTPS; no han sido verificados con una cuenta de comercio de este proyecto.
+
+| Variable | Uso |
+| --- | --- |
+| `PAYMENTS_MODE=demo` | Simulación local sin dinero ni llamadas externas. Valor por defecto. |
+| `PAYMENTS_MODE=sandbox` | Credenciales de prueba y confirmaciones verificadas por el servidor. |
+| `PAYMENTS_MODE=live` | Cobros reales; requiere validar primero la integración con el comercio. |
+| `CHECKOUT_PUBLIC_URL` | URL de Next.js para volver del pago. En local: `http://localhost:3000`. Las pasarelas requieren HTTPS. |
+| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Credenciales del entorno PayPal seleccionado. Solo en el backend. |
+| `PAYPAL_USD_PER_PEN` | Dólares por sol, definidos por el comercio. No se presupone un tipo de cambio. |
+| `MERCADOPAGO_ACCESS_TOKEN` | Credencial del entorno de una cuenta peruana con los métodos habilitados. |
+
+PayPal no ofrece PEN en su lista de monedas. La integración convierte el importe a
+USD usando el valor configurado por el comercio y conserva esa cotización en el
+pedido. El comprador ve el importe exacto en USD antes de continuar. El comercio
+es responsable de mantener la conversión actualizada.
+
+Yape y Visa abren el checkout alojado de Mercado Pago. El método seleccionado se
+sugiere a la pasarela; los métodos finalmente disponibles dependen de la cuenta y
+el comprador puede cambiar de método allí. El proyecto no recibe números de
+tarjeta, CVV, contraseñas de PayPal ni códigos OTP de Yape.
+
+Al regresar, **Ya pagué · Verificar pago** consulta el estado real en la pasarela;
+un parámetro `success` en la URL nunca marca el pedido como pagado. Una confirmación
+en sandbox produce `test_paid`, sin contabilizar ventas. Solo un pago confirmado
+en `live` produce `paid` y crea las líneas de venta una sola vez.
+
+Para compradores que cierran la página antes de regresar, existe
+`POST /checkout/reconcile`, protegido por `BACKEND_API_KEY`. Antes de activar
+cobros reales, programa su ejecución periódica desde el servidor. No se han
+configurado webhooks ni un programador externo en este proyecto. Los reembolsos y
+contracargos se gestionan en la pasarela; todavía no se sincronizan en este panel.
+
+### API y protección de pedidos
+
+Next.js ofrece un proxy limitado en `/api/checkout/*`; envía la clave del backend
+solo desde el servidor y una identidad aleatoria en cookie `HttpOnly`. No se usa
+el correo del formulario para autorizar el acceso a pedidos.
+
+| Ruta de FastAPI | Función |
+| --- | --- |
+| `GET /checkout/config` | Modo y métodos disponibles, sin secretos. |
+| `POST /orders` | Crear un pedido a partir de productos y cantidades. |
+| `GET /orders/{id}` | Obtener el pedido de la sesión actual. |
+| `POST /orders/{id}/pay` | Obtener el enlace de la pasarela. |
+| `POST /orders/{id}/confirm` | Verificar/capturar el pago con la pasarela. |
+| `POST /orders/{id}/demo` | Simular aprobación, rechazo o cancelación. Solo en `demo`. |
+| `POST /checkout/reconcile` | Verificar pedidos pendientes desde un trabajo del servidor. |
+
+Todas requieren `Authorization: Bearer BACKEND_API_KEY`; las rutas de pedidos
+requieren además `X-Checkout-Owner` (UUID). El navegador recibe únicamente la
+información de su pedido. Las rutas que modifican datos comprueban el origen.
+Los importes se calculan en el backend, redondeando cada línea al céntimo; la clave
+de idempotencia y los bloqueos transaccionales evitan duplicados al reintentar.
+
+Las pruebas cubren las tres simulaciones, propiedad del pedido, precios manipulados,
+productos inactivos, claves duplicadas, confirmaciones repetidas y validación de
+moneda/importe de las pasarelas mediante respuestas simuladas. Se ejecutan con el
+comando de pruebas de Docker indicado arriba y hacen rollback de sus datos.
+
+En Vercel el catálogo anterior puede seguir funcionando sin `BACKEND_URL`, pero
+**el checkout requiere el backend FastAPI publicado** y sus variables. Subir el
+código a GitHub por sí solo no publica FastAPI ni habilita pagos.
+
+Referencias oficiales: [PayPal Checkout](https://developer.paypal.com/studio/checkout/standard/integrate),
+[monedas de PayPal](https://developer.paypal.com/api/codes/currency/),
+[Mercado Pago Checkout Pro](https://www.mercadopago.com.pe/developers/es/docs/checkout-pro/create-payment-preference).
