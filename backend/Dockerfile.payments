@@ -1,0 +1,15 @@
+FROM python:3.12-slim-bookworm AS runtime
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY requirements-payments.txt ./
+RUN pip install --no-cache-dir -r requirements-payments.txt
+RUN useradd --create-home api
+COPY payments_main.py ./
+COPY domain ./domain
+COPY application/__init__.py application/ports.py ./application/
+COPY infrastructure/__init__.py infrastructure/payments.py ./infrastructure/
+COPY presentation/__init__.py presentation/common.py ./presentation/
+COPY contracts ./contracts
+USER api
+EXPOSE 8001
+CMD ["uvicorn", "payments_main:app", "--host", "0.0.0.0", "--port", "8001"]

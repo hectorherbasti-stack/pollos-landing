@@ -1,16 +1,19 @@
-"""Pasarelas alojadas: nunca recibe números de tarjeta, CVV ni códigos de Yape."""
+"""Pasarelas alojadas. Implementa los puertos sin depender de FastAPI."""
+from __future__ import annotations
+
 import os
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import HTTPException
+from application.ports import PaymentProvider
+from domain.errors import Conflict, GatewayFailure, Unavailable
 
 
 def mode():
     value = os.getenv('PAYMENTS_MODE', 'demo')
     if value not in ('demo', 'sandbox', 'live'):
-        raise HTTPException(503, 'Configuración de pagos inválida')
+        raise Unavailable('Configuración de pagos inválida')
     return value
 
 
@@ -40,16 +43,16 @@ def request(method, url, **kwargs):
         return response.json()
     except (httpx.HTTPError, ValueError):
         # No reflejamos claves, datos del cliente ni errores internos de la pasarela.
-        raise HTTPException(502, 'No se pudo consultar la pasarela. Reintenta sin crear otro pedido.') from None
+        raise GatewayFailure('No se pudo consultar la pasarela. Reintenta sin crear otro pedido.') from None
 
 
 def return_url(order):
     base = os.getenv('CHECKOUT_PUBLIC_URL', 'http://localhost:3000').rstrip('/')
     parsed = urlparse(base)
     if parsed.scheme not in ('http', 'https') or not parsed.netloc:
-        raise HTTPException(503, 'Configura CHECKOUT_PUBLIC_URL')
+        raise Unavailable('Configura CHECKOUT_PUBLIC_URL')
     if mode() != 'demo' and parsed.scheme != 'https':
-        raise HTTPException(503, 'La pasarela necesita CHECKOUT_PUBLIC_URL con HTTPS')
+        raise Unavailable('La pasarela necesita CHECKOUT_PUBLIC_URL con HTTPS')
     return f"{base}/pedido/{order['id']}"
 
 
@@ -65,10 +68,10 @@ def mp_headers():
     return {'Authorization': f"Bearer {os.environ['MERCADOPAGO_ACCESS_TOKEN']}"}
 
 
-def start(order):
-    callback = return_url(order)
-    order_id = str(order['id'])
-    if order['payment_method'] == 'paypal':
+class PayPalProvider:
+    def start(self, order):
+        callback = return_url(order)
+        order_id = str(order['id'])
         base, headers = paypal_credentials()
         headers['PayPal-Request-Id'] = order_id
         result = request('POST', f'{base}/v2/checkout/orders', headers=headers, json={
@@ -81,7 +84,16 @@ def start(order):
             }}},
         })
         link = next((link['href'] for link in result.get('links', []) if link['rel'] in ('payer-action', 'approve')), None)
-    else:
+        return payment_link(result, link)
+
+    def verify(self, order, capture=False):
+        return paypal_result(order, capture)
+
+
+class MercadoPagoProvider:
+    def start(self, order):
+        callback = return_url(order)
+        order_id = str(order['id'])
         # El checkout alojado ofrece Yape y tarjetas según la cuenta peruana del comercio.
         result = request('POST', 'https://api.mercadopago.com/checkout/preferences', headers=mp_headers(), json={
             'items': [{'id': order_id, 'title': 'Pedido Julia · recojo en tienda', 'quantity': 1,
@@ -92,8 +104,15 @@ def start(order):
             'payment_methods': {'installments': 1, 'default_payment_method_id': order['payment_method']},
         })
         link = result.get('init_point' if mode() == 'live' else 'sandbox_init_point')
+        return payment_link(result, link)
+
+    def verify(self, order, capture=False):
+        return mercado_result(order)
+
+
+def payment_link(result, link):
     if not link or urlparse(link).scheme != 'https':
-        raise HTTPException(502, 'La pasarela no devolvió un enlace de pago válido')
+        raise GatewayFailure('La pasarela no devolvió un enlace de pago válido')
     return str(result['id']), link
 
 
@@ -108,13 +127,13 @@ def paypal_result(order, capture=False):
         return None
     units = result.get('purchase_units', [])
     if len(units) != 1 or units[0].get('custom_id') != str(order['id']):
-        raise HTTPException(502, 'La referencia del pago no coincide')
+        raise GatewayFailure('La referencia del pago no coincide')
     captures = units[0].get('payments', {}).get('captures', [])
     if len(captures) != 1 or captures[0].get('status') != 'COMPLETED':
         return None
     payment = captures[0]
     if payment.get('amount', {}).get('currency_code') != order['charge_currency'] or Decimal(payment['amount']['value']) * 100 != order['charge_cents']:
-        raise HTTPException(502, 'El importe confirmado no coincide con el pedido')
+        raise GatewayFailure('El importe confirmado no coincide con el pedido')
     return 'paypal:' + payment['id']
 
 
@@ -125,16 +144,37 @@ def mercado_result(order):
         if payment.get('status') != 'approved' or payment.get('external_reference') != str(order['id']):
             continue
         if payment.get('live_mode') != (order['payment_mode'] == 'live'):
-            raise HTTPException(502, 'El entorno del pago no coincide con el pedido')
+            raise GatewayFailure('El entorno del pago no coincide con el pedido')
         if payment.get('currency_id') != 'PEN' or Decimal(str(payment.get('transaction_amount', 0))) * 100 != order['total_cents']:
-            raise HTTPException(502, 'El importe confirmado no coincide con el pedido')
+            raise GatewayFailure('El importe confirmado no coincide con el pedido')
         return 'mercadopago:' + str(payment['id'])
     return None
 
 
-def verify(order, capture=False):
-    if order['payment_mode'] != mode():
-        raise HTTPException(409, 'Este pedido pertenece a otro entorno de pagos')
-    if not order['provider_reference']:
-        return None
-    return paypal_result(order, capture) if order['payment_method'] == 'paypal' else mercado_result(order)
+class HostedPayments:
+    def __init__(self, providers: dict[str, PaymentProvider]):
+        self.providers = providers
+
+    def mode(self):
+        return mode()
+
+    def usd_rate(self):
+        return usd_rate()
+
+    def configuration(self):
+        return configuration()
+
+    def provider(self, method):
+        if method not in self.providers:
+            raise Unavailable('Este método de pago todavía no está configurado')
+        return self.providers[method]
+
+    def start(self, order):
+        return self.provider(order['payment_method']).start(order)
+
+    def verify(self, order, capture=False):
+        if order['payment_mode'] != self.mode():
+            raise Conflict('Este pedido pertenece a otro entorno de pagos')
+        if not order['provider_reference']:
+            return None
+        return self.provider(order['payment_method']).verify(order, capture)

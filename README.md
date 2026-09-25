@@ -2,8 +2,23 @@
 
 Landing y panel de ventas con Next.js, backend Python/FastAPI y PostgreSQL.
 
-En Docker, Next.js consulta FastAPI para productos, ventas y estadísticas.
+En Docker, Next.js consulta el servicio de comercio (FastAPI) para productos,
+pedidos, ventas y estadísticas. Comercio llama al microservicio de pagos por HTTP.
 Auth.js conserva su conexión directa a PostgreSQL para las sesiones de Google.
+
+## Arquitectura y pruebas rápidas
+
+El backend usa arquitectura hexagonal: dominio, casos de uso, puertos y adaptadores
+de HTTP, PostgreSQL y pagos. Next.js compone sus adaptadores en `lib/backend.js`.
+La estructura, los criterios SOLID y las garantías transaccionales están descritos
+en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
+Los servicios, sus contratos y el despliegue están descritos en
+[docs/MICROSERVICIOS.md](docs/MICROSERVICIOS.md).
+
+`npm test` ejecuta las pruebas del servidor web. Desde `backend/`,
+`python3 -m unittest discover -s tests -p test_core.py -v` prueba el núcleo sin
+instalar dependencias ni iniciar Docker. La suite con PostgreSQL se ejecuta con
+el comando de Docker indicado más abajo.
 
 ## Docker y Docker Compose
 
@@ -16,7 +31,8 @@ define y arranca los servicios juntos mediante `compose.yaml`.
 | Servicio | Imagen | Uso |
 | --- | --- | --- |
 | `app` | `pollos-landing:local` | Se construye con el `Dockerfile`, basado en `node:22-bookworm-slim`. Ejecuta Next.js en producción como usuario sin privilegios. |
-| `backend` | `pollos-backend:local` | Python 3.12, FastAPI y Psycopg con pool de conexiones. Se construye desde `backend/Dockerfile`. |
+| `backend` | `pollos-backend:local` | Servicio de comercio: catálogo, pedidos, ventas y PostgreSQL. Se construye desde `backend/Dockerfile`. |
+| `payments` | `pollos-payments:local` | Servicio de pagos sin base de datos, con las credenciales de pasarelas. Imagen independiente desde `backend/Dockerfile.payments`; puerto interno 8001. |
 | `db` | `postgres:17-bookworm` | PostgreSQL con datos persistentes en el volumen `postgres_data`. |
 
 1. Copia las variables de ejemplo:
@@ -25,7 +41,7 @@ define y arranca los servicios juntos mediante `compose.yaml`.
    cp .env.example .env
    ```
 
-2. Edita `.env`: configura `POSTGRES_PASSWORD`, `PANEL_PASSWORD`, `AUTH_SECRET` y `BACKEND_API_KEY`.
+2. Edita `.env`: configura `POSTGRES_PASSWORD`, `PANEL_PASSWORD`, `AUTH_SECRET`, `BACKEND_API_KEY` y `PAYMENTS_API_KEY`.
    Puedes ejecutar `openssl rand -hex 32` para generar cada valor por separado.
    Compose configura `DATABASE_URL` automáticamente para conectarse al servicio
    `db`; no utiliza el valor de ejemplo ni `.env.local`.
@@ -38,7 +54,7 @@ define y arranca los servicios juntos mediante `compose.yaml`.
    docker compose up --build -d
    ```
 
-Abre http://localhost:3000. FastAPI espera a PostgreSQL y crea las tablas de negocio
+Abre http://localhost:3000. Comercio espera a PostgreSQL y pagos y crea las tablas de negocio
 y productos iniciales si aún no existen; Next.js espera a que FastAPI esté saludable.
 Los volúmenes existentes se conservan. La documentación interactiva de la API está
 en http://localhost:8000/docs y el esquema en http://localhost:8000/openapi.json.
@@ -50,6 +66,8 @@ Comandos útiles:
 docker compose ps                 # Estado de los servicios
 docker compose logs -f app        # Logs de la aplicación
 docker compose logs -f backend    # Logs de FastAPI
+docker compose logs -f payments   # Logs del servicio de pagos
+docker compose up --build -d payments  # Actualizar pagos de forma independiente
 docker compose down              # Detener; conserva los datos
 docker compose up --build -d      # Reconstruir después de cambiar código
 ```
@@ -59,7 +77,7 @@ docker compose up --build -d      # Reconstruir después de cambiar código
 existente de la base; debes actualizarla también en PostgreSQL.
 
 Esta configuración publica la aplicación solo en la máquina local y mantiene
-PostgreSQL en la red interna. Para un despliegue público, configura un proxy HTTPS,
+PostgreSQL y pagos sin puertos publicados al host. Para un despliegue público, configura un proxy HTTPS,
 la publicación del puerto y `AUTH_URL` con tu dominio.
 
 ## API de FastAPI
@@ -95,11 +113,14 @@ docker compose -f compose.yaml -f compose.test.yaml --profile test run --build -
 
 Las pruebas validan autenticación, cantidades, productos inactivos, precios históricos
 y totales. Usan transacciones con rollback para no dejar ventas de prueba.
+También validan el contrato interno, fallos de red y comunicación HTTP real con
+`payments-test`, una instancia independiente en modo demo sin claves de pasarelas.
 
 ## Desarrollo de Python
 
 El comando `docker compose up --build -d` no requiere instalar Python localmente.
 Después de editar el backend, reconstruye con `docker compose up --build -d backend`.
+Para actualizar pagos, usa `docker compose up --build -d payments`.
 Para ejecutar Python fuera de Docker, usa Python 3.12 y una PostgreSQL accesible:
 
 ```bash
@@ -112,6 +133,10 @@ uvicorn main:app --reload --port 8000
 ```
 
 El proceso de Python lee variables de entorno, no carga `.env` automáticamente.
+Para ejecutar pagos aparte, exporta `PAYMENTS_API_KEY`, `PAYMENTS_MODE` y las
+variables de pasarelas necesarias, y ejecuta `uvicorn payments_main:app --port 8001`.
+En el proceso de comercio define `PAYMENTS_SERVICE_URL=http://localhost:8001` y
+la misma `PAYMENTS_API_KEY`. Omitir `PAYMENTS_SERVICE_URL` conserva el modo integrado.
 Para conectar Next.js fuera de Docker, añade `BACKEND_URL=http://localhost:8000`
 y la misma `BACKEND_API_KEY` en `.env.local`, además de su `DATABASE_URL` para Auth.js.
 
@@ -142,6 +167,9 @@ Docker no publica ni cambia el despliegue de Vercel. Para usar FastAPI desde Ver
 primero despliega el backend en un servidor accesible por HTTPS y configura allí
 `DATABASE_URL` y `BACKEND_API_KEY`; en Vercel define su URL pública como `BACKEND_URL`
 y la misma clave. `http://backend:8000` solo existe dentro de Docker Compose.
+Para la separación en microservicios, despliega también pagos y configura en
+comercio `PAYMENTS_SERVICE_URL` y `PAYMENTS_API_KEY`. Las credenciales de PayPal
+y Mercado Pago se configuran únicamente en el servicio de pagos.
 
 ## Carrito y pagos de prueba
 
@@ -176,7 +204,7 @@ HTTPS; no han sido verificados con una cuenta de comercio de este proyecto.
 | `PAYMENTS_MODE=sandbox` | Credenciales de prueba y confirmaciones verificadas por el servidor. |
 | `PAYMENTS_MODE=live` | Cobros reales; requiere validar primero la integración con el comercio. |
 | `CHECKOUT_PUBLIC_URL` | URL de Next.js para volver del pago. En local: `http://localhost:3000`. Las pasarelas requieren HTTPS. |
-| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Credenciales del entorno PayPal seleccionado. Solo en el backend. |
+| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Credenciales del entorno PayPal seleccionado. Solo en el servicio `payments` de Docker. |
 | `PAYPAL_USD_PER_PEN` | Dólares por sol, definidos por el comercio. No se presupone un tipo de cambio. |
 | `MERCADOPAGO_ACCESS_TOKEN` | Credencial del entorno de una cuenta peruana con los métodos habilitados. |
 

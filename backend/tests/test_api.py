@@ -4,7 +4,8 @@ import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
-import payments
+from infrastructure import payments
+from domain.errors import GatewayFailure
 
 import psycopg
 from psycopg.rows import dict_row
@@ -155,7 +156,7 @@ class ApiTests(unittest.TestCase):
             order = self.new_order()
             path = '/orders/' + order['id']
             self.assertEqual(self.client.post(path + '/demo', headers=self.checkout_headers(), json={'outcome': 'approved'}).status_code, 403)
-            with patch('payments.verify', return_value='mercadopago:' + str(uuid4())) as verify:
+            with patch.object(payments.HostedPayments, 'verify', return_value='mercadopago:' + str(uuid4())) as verify:
                 for _ in range(2):
                     result = self.client.post(path + '/confirm', headers=self.checkout_headers(), json={})
                     self.assertEqual(result.json()['status'], 'paid', result.text)
@@ -167,15 +168,14 @@ class ApiTests(unittest.TestCase):
         order = {'id': uuid4(), 'payment_mode': 'live', 'total_cents': 3625}
         payment = {'id': 123, 'status': 'approved', 'external_reference': str(order['id']),
                    'live_mode': True, 'currency_id': 'PEN', 'transaction_amount': 36.25}
-        from fastapi import HTTPException
         with patch.dict(os.environ, {'MERCADOPAGO_ACCESS_TOKEN': 'unit-test'}):
-            with patch('payments.request', return_value={'results': [payment]}):
+            with patch('infrastructure.payments.request', return_value={'results': [payment]}):
                 self.assertEqual(payments.mercado_result(order), 'mercadopago:123')
             for key, value in [('currency_id', 'USD'), ('transaction_amount', 1), ('live_mode', False)]:
-                with patch('payments.request', return_value={'results': [{**payment, key: value}]}):
-                    with self.assertRaises(HTTPException):
+                with patch('infrastructure.payments.request', return_value={'results': [{**payment, key: value}]}):
+                    with self.assertRaises(GatewayFailure):
                         payments.mercado_result(order)
-            with patch('payments.request', return_value={'results': [{**payment, 'external_reference': str(uuid4())}]}):
+            with patch('infrastructure.payments.request', return_value={'results': [{**payment, 'external_reference': str(uuid4())}]}):
                 self.assertIsNone(payments.mercado_result(order))
 
     def test_paypal_confirmation_requires_completed_capture_and_exact_amount(self):
@@ -183,13 +183,12 @@ class ApiTests(unittest.TestCase):
         result = {'id': 'REMOTE123', 'status': 'COMPLETED', 'purchase_units': [
             {'custom_id': str(order['id']), 'payments': {'captures': [
                 {'id': 'CAPTURE123', 'status': 'COMPLETED', 'amount': {'currency_code': 'USD', 'value': '10.00'}}]}}]}
-        from fastapi import HTTPException
-        with patch('payments.paypal_credentials', return_value=('https://example.invalid', {})):
-            with patch('payments.request', return_value=result):
+        with patch('infrastructure.payments.paypal_credentials', return_value=('https://example.invalid', {})):
+            with patch('infrastructure.payments.request', return_value=result):
                 self.assertEqual(payments.paypal_result(order), 'paypal:CAPTURE123')
             result['purchase_units'][0]['payments']['captures'][0]['amount']['value'] = '0.01'
-            with patch('payments.request', return_value=result):
-                with self.assertRaises(HTTPException):
+            with patch('infrastructure.payments.request', return_value=result):
+                with self.assertRaises(GatewayFailure):
                     payments.paypal_result(order)
 
 

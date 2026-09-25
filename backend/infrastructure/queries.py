@@ -1,4 +1,4 @@
-"""Consultas compatibles con el esquema existente; precios en céntimos."""
+"""SQL privado del adaptador PostgreSQL; precios en céntimos."""
 
 PRODUCTS = """
     SELECT

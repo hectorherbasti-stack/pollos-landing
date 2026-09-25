@@ -6,14 +6,16 @@ Esta guía explica la estructura completa del repositorio y el recorrido de los 
 
 ```text
 Navegador
-  ├─ GET / ───────────────> app/page.jsx ───────> lib/db.js ─────> PostgreSQL
+  ├─ GET / ───────────────> app/page.jsx ───────> lib/backend.js
+  │                                              ├─ HTTP -> FastAPI -> PostgreSQL
+  │                                              └─ PostgreSQL directo (sin BACKEND_URL)
   ├─ GET/POST /api/auth/* -> auth.js ───────────> tablas de Auth.js
   ├─ GET /ingresar ───────> Google OAuth
   └─ GET /panel
        └─ middleware.js valida cookie
             ├─ inválida -> /panel/login
             └─ válida  -> app/panel/page.jsx
-                           └─ formulario -> app/actions.js -> lib/db.js
+                           └─ formulario -> app/actions.js -> lib/backend.js
 ```
 
 Next.js usa rutas basadas en carpetas. Cada `page.jsx` crea una página y cada `route.js` crea un endpoint HTTP. Los archivos bajo `lib/` no crean rutas: contienen lógica reutilizable del servidor.
@@ -49,13 +51,24 @@ Next.js usa rutas basadas en carpetas. Cada `page.jsx` crea una página y cada `
 
 ### `lib/`: lógica de servidor
 
-- `lib/db.js`: abre el pool PostgreSQL, crea el esquema inicial y ejecuta todas las consultas comerciales.
+- `lib/backend.js`: conecta los casos de uso con el adaptador HTTP o PostgreSQL y la autorización del panel.
+- `lib/application/store.js`: operaciones del servidor web independientes de Next.js.
+- `lib/infrastructure/`: adaptadores HTTP y PostgreSQL; este último conserva el pool y la inicialización del esquema.
+- `lib/presentation/panelAccess.js`: autorización con cookies de Next.js.
+- `lib/db.js`: reexporta la persistencia que necesita Auth.js.
 - `lib/panelAuth.js`: contiene el nombre de la cookie y la función SHA-256 compartida por login y middleware.
+
+### `backend/`: núcleo comercial y API
+
+`domain/` contiene reglas y valores; `application/` contiene casos de uso y puertos;
+`infrastructure/` implementa PostgreSQL y pagos; `presentation/` adapta HTTP.
+`main.py` conecta las capas. Consulta [ARQUITECTURA.md](ARQUITECTURA.md) para el
+diagrama, los criterios SOLID y las pruebas.
 
 ### `database/`: diseño de datos
 
 - `database/schema.sql`: esquema simple que corresponde al panel actual.
-- `database/market-schema.sql`: modelo objetivo para múltiples mercados y puestos. Aún no es consumido por `lib/db.js`.
+- `database/market-schema.sql`: modelo objetivo para múltiples mercados y puestos. Aún no es consumido por los adaptadores.
 - `database/MODEL.md`: explica relaciones, decisiones y cálculos del modelo multi-puesto.
 
 ### `src/`: configuración y recursos
@@ -74,7 +87,7 @@ Los SVG de React/Vite y `src/assets/hero.png` también son recursos heredados si
 1. El navegador solicita `/`.
 2. Next.js ejecuta `Home` de `app/page.jsx` en el servidor.
 3. `Promise.all` pide simultáneamente la sesión (`auth`) y los productos (`getProducts`).
-4. `getProducts` llama `ensureDatabase`, obtiene una conexión del pool y ejecuta SQL parametrizado.
+4. `getProducts` usa el adaptador elegido en `lib/backend.js`: consulta FastAPI o ejecuta SQL con el adaptador PostgreSQL directo. El caso de uso entrega solo campos públicos.
 5. React transforma el arreglo de productos en tarjetas usando `map`.
 6. Next.js envía HTML al navegador. Las credenciales y el código PostgreSQL nunca se incluyen.
 7. `OrderCta` revisa la sesión: con sesión abre WhatsApp; sin ella abre `/ingresar`.
@@ -86,7 +99,7 @@ Los SVG de React/Vite y `src/assets/hero.png` también son recursos heredados si
 3. Si no coincide, redirige a `/panel/login`.
 4. El formulario del panel envía `productId` y `quantity` a `createSale`.
 5. `createSale` convierte y valida ambos valores.
-6. `recordSale` usa parámetros `$1` y `$2`, evitando inyección SQL.
+6. `recordSale` verifica nuevamente la autorización y delega al adaptador seleccionado. Los repositorios usan SQL parametrizado.
 7. PostgreSQL copia el precio y costo vigentes dentro de la venta.
 8. `revalidatePath` marca portada y panel para volver a consultar datos.
 9. El navegador regresa al panel con un mensaje de éxito.

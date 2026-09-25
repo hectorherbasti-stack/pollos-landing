@@ -30,19 +30,38 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     environment:
+      PAYMENTS_SERVICE_URL: http://payments:8001
+      PAYMENTS_API_KEY: "${PAYMENTS_API_KEY:?Define PAYMENTS_API_KEY en .env}"
+      DATABASE_URL: "postgresql://julia:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}@db:5432/julia"
+      BACKEND_API_KEY: "${BACKEND_API_KEY:?Define BACKEND_API_KEY en .env}"
+    depends_on:
+      db:
+        condition: service_healthy
+      payments:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  payments:
+    image: pollos-payments:local
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.payments
+    environment:
+      PAYMENTS_API_KEY: "${PAYMENTS_API_KEY:?Define PAYMENTS_API_KEY en .env}"
       PAYMENTS_MODE: "${PAYMENTS_MODE:-demo}"
       CHECKOUT_PUBLIC_URL: "${CHECKOUT_PUBLIC_URL:-http://localhost:3000}"
       PAYPAL_CLIENT_ID: "${PAYPAL_CLIENT_ID:-}"
       PAYPAL_CLIENT_SECRET: "${PAYPAL_CLIENT_SECRET:-}"
       PAYPAL_USD_PER_PEN: "${PAYPAL_USD_PER_PEN:-}"
       MERCADOPAGO_ACCESS_TOKEN: "${MERCADOPAGO_ACCESS_TOKEN:-}"
-      DATABASE_URL: "postgresql://julia:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}@db:5432/julia"
-      BACKEND_API_KEY: "${BACKEND_API_KEY:?Define BACKEND_API_KEY en .env}"
-    depends_on:
-      db:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
       interval: 5s
       timeout: 5s
       retries: 10
