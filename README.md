@@ -1,4 +1,4 @@
-# Julia
+# PollosMa
 
 Landing y panel de ventas con Next.js, backend Python/FastAPI y PostgreSQL.
 
